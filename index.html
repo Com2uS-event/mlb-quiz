@@ -190,11 +190,12 @@
     <!-- 舞台畫面模式與控台模式時解除 max-w-7xl 限制，將區域全寬度擴展 (Full Width Layout) -->
     <div class="sticky top-0 z-[60] px-4 py-2 border-b border-slate-700 bg-slate-950 text-sm text-center" role="status" aria-live="polite">
         <span :class="ready ? 'text-emerald-300' : 'text-red-300'">{{ connectionMessage }}</span>
-        <span v-if="!initialized" class="text-amber-300 ml-3">請主持人先完全重置，初始化新版遊戲。</span>
+        <span v-if="!initialized" class="text-amber-300 ml-3">請主持人匯入備份或完全重置，初始化新版遊戲。</span>
+        <span v-if="receiptStatus" class="text-red-300 ml-3">{{ receiptStatus }}</span>
         <span v-if="feedback" class="text-amber-200 ml-3">{{ feedback }}</span>
     </div>
     <main class="flex-1 flex flex-col p-3 sm:p-6 w-full mx-auto relative z-10" :class="(currentRoute === 'screen' || currentRoute === 'admin') ? 'max-w-none px-4 sm:px-10 lg:px-12' : 'max-w-7xl'">
-    <fieldset :disabled="pending || !ready" class="contents">
+    <fieldset :disabled="pending || settling || !ready" class="contents">
 
         <!-- PAGE 0: 系統門戶 (SYSTEM HUB) -->
         <section v-if="currentRoute === '' || currentRoute === 'hub'" class="flex-1 flex flex-col justify-center items-center py-8">
@@ -497,7 +498,7 @@
                             <span class="text-slate-300 font-bold flex items-center gap-2">
                                 <i class="fa-solid fa-spinner fa-spin text-amber-400 text-base"></i> 進攻方代表作答進度
                             </span>
-                            <span class="text-amber-400 font-bold font-oswald text-lg sm:text-xl">{{ submittedTablesCount }} / 10 桌已送出答案</span>
+                            <span class="text-amber-400 font-bold font-oswald text-lg sm:text-xl">{{ submittedTablesCount }} / 10 桌已確認收件</span>
                         </div>
                         <div class="grid grid-cols-10 gap-2 pt-1">
                             <div v-for="t in activeTeamTables" :key="t" 
@@ -548,6 +549,7 @@
                         <i class="fa-solid fa-trophy mb-4 text-7xl sm:text-8xl"></i><br>
                         FINAL RESULT
                     </div>
+<p class="text-amber-200 text-xl">{{ gameState.endedEarly ? '主持人提前結束比賽' : '十題完成' }}｜已結算 {{ Object.keys(gameState.history).length }} 題</p>
                     <h2 class="text-4xl sm:text-6xl font-black text-white mt-4">
                         <span v-if="gameState.scores.red > gameState.scores.blue" class="text-red-400 drop-shadow-[0_0_30px_rgba(239,68,68,0.7)]">🏆 紅隊 RED TEAM 獲得總冠軍！</span>
                         <span v-else-if="gameState.scores.blue > gameState.scores.red" class="text-blue-400 drop-shadow-[0_0_30px_rgba(59,130,246,0.7)]">🏆 藍隊 BLUE TEAM 獲得總冠軍！</span>
@@ -852,8 +854,11 @@
                     <div class="flex flex-wrap justify-between items-center gap-3">
                         <h3 class="text-xl font-bold text-amber-300">逐輪紀錄與現場還原</h3>
                         <button @click="exportGameLog()" class="px-4 py-2 bg-slate-700 rounded-xl text-white font-bold">下載完整紀錄 JSON</button>
+                        <label class="px-4 py-2 bg-blue-800 rounded-xl text-white font-bold cursor-pointer">匯入備份 JSON<input type="file" accept="application/json,.json" @change="importGameLog($event)" class="block text-xs mt-2 max-w-56"></label>
+                        <button @click="finishEarly()" :disabled="gameState.phase === 'GAME_OVER' || gameState.submissionClosing" class="px-4 py-2 bg-red-900 border border-red-500 rounded-xl text-white font-bold">提前結束／公布目前勝負</button>
                     </div>
                     <p class="text-sm text-slate-300">還原會撤回所選輪次及其後所有輪次；分數、卡片、題庫進度與後續手動調分一併回復。桌號鎖定保留。撤回的紀錄仍保存在還原操作紀錄與下載檔中。</p>
+                    <p class="text-sm text-amber-200">建議每題結算後下載備份。匯入會保留現場桌號、暫停倒數並隔離舊請求；提前結束只保留已結算分數，尚未結算的本輪不計分。</p>
                     <p v-if="roundRecords.length === 0" class="text-slate-400">尚無輪次紀錄；開始類別投票後會自動建立快照。</p>
                     <details v-for="record in roundRecords" :key="record.id" class="bg-slate-950 border border-slate-700 rounded-xl p-4">
                         <summary class="cursor-pointer font-bold text-white">第 {{ record.roundNumber }} 輪｜{{ record.team === 'red' ? '紅隊' : '藍隊' }}｜{{ record.status }}<span v-if="record.result" class="ml-2 text-emerald-300">答對 {{ record.result.correctCount }} 桌／+{{ record.result.addedPoints }} 分</span></summary>
@@ -958,7 +963,7 @@
                             <div class="w-16 h-16 bg-emerald-950 text-emerald-400 border-2 border-emerald-500 rounded-full flex items-center justify-center mx-auto text-3xl shadow-[0_0_20px_rgba(16,185,129,0.3)]">
                                 <i class="fa-solid fa-lock"></i>
                             </div>
-                            <h3 class="text-xl font-bold text-white">投票已鎖定</h3>
+                            <h3 class="text-xl font-bold text-white">投票已確認收件</h3>
                             <p class="text-sm text-slate-300 font-medium">您已完成本輪投票，請等待大螢幕揭曉結果！</p>
                         </div>
                         <div v-else-if="effectiveTimer <= 0" class="py-10 text-center space-y-4">
@@ -1017,7 +1022,7 @@
                             <div class="w-16 h-16 bg-purple-950 text-purple-400 border-2 border-purple-500 rounded-full flex items-center justify-center mx-auto text-3xl shadow-[0_0_20px_rgba(168,85,247,0.3)]">
                                 <i class="fa-solid fa-wand-magic-sparkles"></i>
                             </div>
-                            <h3 class="text-xl font-bold text-white">戰術卡投票已鎖定</h3>
+                            <h3 class="text-xl font-bold text-white">戰術卡投票已確認收件</h3>
                             <p class="text-sm text-slate-300 font-medium">您已完成戰術卡小組投票，請等待主持人揭曉！</p>
                         </div>
                         <div v-else-if="effectiveTimer <= 0" class="py-10 text-center space-y-4">
@@ -1114,7 +1119,7 @@
                             <!-- SUCCESS SUBMIT UI -->
                             <div v-else-if="gameState.answers['table_' + selectedMobileTable]" class="bg-emerald-950/80 border-2 border-emerald-500/60 p-5 rounded-2xl text-center space-y-2 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
                                 <i class="fa-solid fa-circle-check text-4xl text-emerald-400"></i>
-                                <div class="text-xl font-black text-emerald-300">答案已成功提交！</div>
+                                <div class="text-xl font-black text-emerald-300">答案已由伺服器確認</div>
                                 <div class="text-base text-slate-100 font-bold">您的選擇：<strong class="text-amber-400 font-oswald text-2xl px-3 py-0.5 bg-slate-900 rounded-md border border-slate-800">{{ gameState.answers['table_' + selectedMobileTable] }}</strong></div>
                                 <p class="text-sm text-slate-300 pt-1 font-medium">已透過雲端即時同步至舞台大螢幕...</p>
                             </div>
@@ -1154,7 +1159,7 @@
 
                     <div v-else-if="gameState.phase === 'GAME_OVER'" class="text-center space-y-6 py-6">
                         <i class="fa-solid fa-flag-checkered text-5xl text-amber-400"></i>
-                        <h3 class="text-3xl font-black text-white">比賽結束</h3>
+                        <h3 class="text-3xl font-black text-white">{{ gameState.endedEarly ? '比賽提前結束' : '比賽結束' }}</h3><p class="text-amber-200">已結算 {{ Object.keys(gameState.history).length }} 題</p>
                         <div class="bg-slate-900 border border-slate-700 p-4 rounded-2xl">
                             <div class="text-base text-slate-300 mb-2 font-bold">最終比分</div>
                             <div class="flex justify-around items-center">
@@ -1185,7 +1190,7 @@
 </div>
 
 <script>
-    // v2: SDK is read-only. All writes use online REST compare-and-set (ETag).
+    // v4: Control state and per-table receipts use independent online REST compare-and-set paths.
     // No Firebase SDK offline write queue; conflicting writes retry against fresh server data.
     const { createApp, ref, computed, reactive, onMounted, watch } = Vue;
     const firebaseConfig = {
@@ -1344,14 +1349,28 @@
             ]);
 
             const categories = ['歷史紀錄', '現役球星', '戰術規則', '綜合時事'];
-            const now = () => Date.now() + clockOffset;
+            const monotonic = () => globalThis.performance?.now?.() ?? Date.now();
+            let clockAnchorMono = monotonic();
+            let clockAnchorServer = Date.now();
+            let lastServerNow = clockAnchorServer;
+            const now = () => {
+                lastServerNow = Math.max(lastServerNow, clockAnchorServer + monotonic() - clockAnchorMono);
+                return lastServerNow;
+            };
+            const calibrateClock = (offset, force = false) => {
+                const estimate = Date.now() + offset;
+                const previous = now();
+                clockAnchorServer = offsetKnown && !force ? Math.max(previous, estimate) : estimate;
+                clockAnchorMono = monotonic();
+                lastServerNow = clockAnchorServer;
+            };
             const freshState = (sessionId = '') => ({
-                schemaVersion: 2, sessionId, controlRevision: 0, roundId: '',
+                schemaVersion: 4, dataRevision: 0, sessionId, submissionNamespace: sessionId, controlRevision: 0, roundId: '',
                 phase: 'LOBBY', activeTeam: 'red', nextTeam: null, scores: { red: 0, blue: 0 },
                 occupiedTables: {}, connectedTables: [], usedQuestionIds: [],
                 currentQuestionIndex: 0, selectedCategory: null, isTieVote: false,
                 isScored: false, showCardNotice: false, lastRevealResult: null,
-                timer: 15, isTimerRunning: false, deadline: 0, categorySettled: false,
+                timer: 15, timerMs: 15000, timerWindowId: null, timerWindows: {}, submissionClosing: false, endedEarly: false, isTimerRunning: false, deadline: 0, categorySettled: false,
                 cardSettled: false, activeCards: { red: null, blue: null },
                 categoryVotes: Object.fromEntries(categories.map(c => [c, 0])),
                 cardVotes: { none: 0 }, tableCardVotes: {}, tableVotes: {}, answers: {},
@@ -1362,10 +1381,11 @@
                 const s = { ...freshState(), ...(raw || {}) };
                 s.scores = { red: 0, blue: 0, ...(s.scores || {}) };
                 s.activeCards = { red: null, blue: null, ...(s.activeCards || {}) };
-                for (const key of ['occupiedTables', 'tableVotes', 'tableCardVotes', 'answers', 'history', 'roundLogs', 'auditLog']) s[key] ||= {};
+                for (const key of ['occupiedTables', 'tableVotes', 'tableCardVotes', 'answers', 'history', 'roundLogs', 'auditLog', 'timerWindows']) s[key] ||= {};
                 s.usedQuestionIds = Array.isArray(s.usedQuestionIds) ? s.usedQuestionIds : Object.values(s.usedQuestionIds || {});
                 s.redCards ||= clone(defaultRedCards);
                 s.blueCards ||= clone(defaultBlueCards);
+                if (raw?.timerMs === undefined) s.timerMs = Math.max(0, Number(s.timer) || 0) * 1000;
                 s.connectedTables = Object.keys(s.occupiedTables).map(k => Number(k.slice(6)));
                 s.categoryVotes = Object.fromEntries(categories.map(c => [c, 0]));
                 s.cardVotes = { none: 0 };
@@ -1383,7 +1403,7 @@
             const gameplayKeys = [
                 'roundId', 'phase', 'activeTeam', 'nextTeam', 'scores', 'usedQuestionIds', 'currentQuestionIndex',
                 'selectedCategory', 'isTieVote', 'isScored', 'showCardNotice', 'lastRevealResult',
-                'timer', 'isTimerRunning', 'deadline', 'categorySettled', 'cardSettled', 'activeCards',
+                'timer', 'timerMs', 'timerWindowId', 'timerWindows', 'submissionClosing', 'endedEarly', 'isTimerRunning', 'deadline', 'categorySettled', 'cardSettled', 'activeCards',
                 'categoryVotes', 'cardVotes', 'tableVotes', 'tableCardVotes', 'answers', 'redCards', 'blueCards', 'systemMessage'
             ];
             const takeGameplay = s => clone(Object.fromEntries(gameplayKeys.map(key => [key, s[key]])));
@@ -1408,13 +1428,22 @@
             const tableLabel = key => '#' + String(Number(key.replace('table_', ''))).padStart(2, '0');
             const cardLabel = id => id === 'none' ? '不使用戰術卡' : [...gameState.redCards, ...gameState.blueCards].find(c => c.id === id)?.name || id;
             const formatLogTime = timestamp => new Date(timestamp).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
-            const effectiveTime = s => s.isTimerRunning && s.deadline ? Math.max(0, Math.ceil((s.deadline - now()) / 1000)) : Math.max(0, Number(s.timer) || 0);
-            const effectiveTimer = computed(() => { localClock.value; return effectiveTime(gameState); });
+            const remainingMs = s => s.isTimerRunning && s.deadline ? Math.max(0, s.deadline - now()) : Math.max(0, Number(s.timerMs ?? s.timer * 1000) || 0);
+            const effectiveTime = s => Math.ceil(remainingMs(s) / 1000);
+            let displayedWindow = '', displayedMinimum = Infinity;
+            const effectiveTimer = computed(() => {
+                localClock.value;
+                const key = [gameState.sessionId, gameState.roundId, gameState.phase, gameState.timerWindowId, gameState.isTimerRunning, gameState.deadline, gameState.timerMs].join('|');
+                const seconds = effectiveTime(gameState);
+                if (key !== displayedWindow) { displayedWindow = key; displayedMinimum = seconds; }
+                displayedMinimum = Math.min(displayedMinimum, seconds);
+                return displayedMinimum;
+            });
             const ready = computed(() => isConnected.value && hasSnapshot.value && clockReady.value);
-            const initialized = computed(() => gameState.schemaVersion === 2 && !!gameState.sessionId);
+            const initialized = computed(() => gameState.schemaVersion === 4 && !!gameState.sessionId);
             const ownsControl = computed(() => { localClock.value; return gameState.adminLease?.id === tabId && gameState.adminLease.expires > now(); });
-            const canSubmit = computed(() => ready.value && initialized.value && !pending.value && isTableLocked.value && gameState.isTimerRunning && effectiveTimer.value > 0);
-            const systemMessage = computed(() => gameState.systemMessage || '等待主持人指示。');
+            const canSubmit = computed(() => ready.value && initialized.value && !pending.value && !settling.value && !gameState.submissionClosing && isTableLocked.value && gameState.isTimerRunning && effectiveTimer.value > 0);
+            const systemMessage = computed(() => gameState.submissionClosing ? gameState.systemMessage : latestReceiptMessage.value || gameState.systemMessage || '等待主持人指示。');
             const currentQuestion = computed(() => questions.value[gameState.currentQuestionIndex] || questions.value[0]);
             const submittedTablesCount = computed(() => Object.keys(gameState.answers).filter(k => teamOf(Number(k.slice(6))) === gameState.activeTeam).length);
             const connectedTablesCount = computed(() => Object.keys(gameState.occupiedTables).length);
@@ -1433,6 +1462,112 @@
             const fail = message => { throw new Error(message); };
             const requireCondition = (ok, message) => { if (!ok) fail(message); };
             const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+            const GRACE_MS = 5000;
+            const receiptBase = firebaseConfig.databaseURL + '/mlb_live_submissions/';
+            const receipts = ref({});
+            let receiptNamespace = '';
+            let receiptRoundId = '';
+            let receiptRef = null;
+            let receiptListener = null;
+            const settling = ref(false);
+            const receiptStatus = ref('');
+            const phaseField = { CATEGORY_VOTE: 'tableVotes', CARD_PLAY: 'tableCardVotes', QUESTION: 'answers' };
+            const windowEnd = window => Math.min(window.deadline, window.closedAt ?? window.deadline);
+            const validReceipt = (s, record, phase, key) => {
+                const window = s.timerWindows?.[record?.windowId];
+                const table = Number(key?.replace('table_', ''));
+                if (!window || !record || !Number.isInteger(table) || table < 1 || table > 20) return false;
+                if (record.namespace !== s.submissionNamespace || record.sessionId !== s.sessionId || record.roundId !== s.roundId || record.phase !== phase || record.table !== table || teamOf(table) !== s.activeTeam) return false;
+                if (window.roundId !== s.roundId || window.phase !== phase || !window.choices.includes(record.choice)) return false;
+                const end = windowEnd(window);
+                return Number.isFinite(record.submittedAt) && Number.isFinite(record.receivedAt) &&
+                    record.submittedAt >= window.openedAt - 500 && record.submittedAt < end &&
+                    record.receivedAt >= record.submittedAt - 1000 && record.receivedAt <= end + GRACE_MS;
+            };
+            const mergeReceipts = (s, source = receipts.value) => {
+                if (s.submissionNamespace !== receiptNamespace) return s;
+                const round = source[s.roundId] || {};
+                for (const [phase, field] of Object.entries(phaseField)) {
+                    if ((phase === 'CATEGORY_VOTE' && s.categorySettled) || (phase === 'CARD_PLAY' && s.cardSettled) || (phase === 'QUESTION' && s.isScored)) continue;
+                    for (const [key, record] of Object.entries(round[phase] || {})) {
+                        if (validReceipt(s, record, phase, key) && !s[field][key]) s[field][key] = record.choice;
+                    }
+                }
+                return s;
+            };
+            const renderReceipts = () => {
+                const s = normalize(mergeReceipts(normalize(clone(gameState))));
+                for (const key of ['tableVotes', 'tableCardVotes', 'answers', 'categoryVotes', 'cardVotes']) gameState[key] = s[key];
+            };
+            const subscribeReceipts = s => {
+                if (s.submissionNamespace === receiptNamespace && s.roundId === receiptRoundId) return;
+                if (receiptRef && receiptListener) receiptRef.off?.('value', receiptListener);
+                receiptNamespace = s.submissionNamespace || '';
+                receiptRoundId = s.roundId || '';
+                receipts.value = {}; receiptStatus.value = '';
+                if (!receiptNamespace || !receiptRoundId) return;
+                const namespace = receiptNamespace, roundId = receiptRoundId;
+                receiptRef = db.ref('mlb_live_submissions/' + namespace + '/' + roundId);
+                receiptListener = snapshot => {
+                    if (namespace !== receiptNamespace || roundId !== receiptRoundId) return;
+                    receipts.value = { [roundId]: snapshot.val() || {} };
+                    receiptStatus.value = '';
+                    renderReceipts();
+                };
+                receiptRef.on('value', receiptListener, () => {
+                    if (namespace !== receiptNamespace || roundId !== receiptRoundId) return;
+                    receiptStatus.value = '無法讀取提交紀錄，請檢查 Firebase「mlb_live_submissions」讀寫權限。';
+                });
+            };
+            const acceptRoot = raw => {
+                if (raw && (raw.dataRevision || 0) < (gameState.dataRevision || 0)) return;
+                const s = normalize(raw);
+                Object.assign(gameState, s);
+                subscribeReceipts(s);
+                renderReceipts();
+                restoreTable(gameState);
+            };
+            const fetchJSON = async (url, options = {}, timeoutMs = 6000) => {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), timeoutMs);
+                controllers.add(controller);
+                try {
+                    const response = await fetch(url, { cache: 'no-store', ...options, signal: controller.signal });
+                    if (!response.ok) throw new Error(`讀寫失敗（${response.status}），請檢查網路及 Firebase 權限。`);
+                    return { response, data: await response.json() };
+                } finally { clearTimeout(timeout); controllers.delete(controller); }
+            };
+            const matchesCollection = (s, context) => s.submissionNamespace === context.namespace && s.sessionId === context.sessionId && s.roundId === context.roundId && s.phase === context.phase && s.submissionClosing;
+            const closeAndCollect = async phase => {
+                const context = { namespace: gameState.submissionNamespace, sessionId: gameState.sessionId, roundId: gameState.roundId, phase };
+                const stopped = await adminWrite(s => {
+                    requireCondition(s.phase === phase && !(phase === 'CATEGORY_VOTE' && s.categorySettled) && !(phase === 'CARD_PLAY' && s.cardSettled) && !(phase === 'QUESTION' && s.isScored), '階段已變更或已結算，不能重複結算。');
+                    closeTimer(s); s.timerMs = 0; s.timer = 0; s.submissionClosing = true;
+                    s.systemMessage = '已截止，正在確認截止前送出的紀錄（最多5秒）…';
+                });
+                if (!stopped) return false;
+                const windows = Object.values(gameState.timerWindows).filter(w => w.phase === phase && w.roundId === context.roundId);
+                const cutoff = Math.max(0, ...windows.map(w => windowEnd(w) + GRACE_MS));
+                await delay(Math.max(0, cutoff - now()) + 100);
+                if (!matchesCollection(gameState, context)) {
+                    feedback.value = '輪次或階段已更新，結算已停止。'; return false;
+                }
+                try {
+                    const { data } = await fetchJSON(receiptBase + context.namespace + '/' + context.roundId + '.json');
+                    if (!matchesCollection(gameState, context)) { feedback.value = '收件確認期間進度已還原或更新，本次結算已取消。'; return false; }
+                    // The server read occurs AFTER the grace period. It is the authoritative settlement input.
+                    receipts.value = { ...receipts.value, [context.roundId]: data || {} };
+                    renderReceipts();
+                    return context;
+                } catch (err) { feedback.value = '尚未確認完整收件，未結算：' + err.message + ' 請恢復網路後再次結算。'; return false; }
+            };
+            const latestReceiptMessage = computed(() => {
+                const records = Object.entries(receipts.value[gameState.roundId]?.[gameState.phase] || {})
+                    .filter(([key, value]) => validReceipt(gameState, value, gameState.phase, key))
+                    .sort((a, b) => b[1].receivedAt - a[1].receivedAt);
+                return records.length ? `${tableLabel(records[0][0])}桌已由伺服器收件。` : '';
+            });
 
             // Fetch is deliberately used instead of SDK writes: there is no offline replay queue.
             // If-Match rejects a stale snapshot; retries preserve concurrently received votes/locks.
@@ -1463,7 +1598,8 @@
                             continue;
                         }
                         requireCondition(saved.ok, '寫入失敗，請檢查 Firebase 權限或網路。');
-                        // Do not apply the REST snapshot locally: realtime may already have newer data.
+                        // Monotonic dataRevision prevents an older acknowledgement from replacing newer state.
+                        acceptRoot(result);
                         return result;
                     }
                     fail('目前同時操作較多，請稍候重試。');
@@ -1491,7 +1627,8 @@
                     const s = raw || freshState();
                     requireCondition(s.sessionId === expectedSession && s.controlRevision === expectedRevision, '流程已由另一個操作更新，請查看最新畫面後再操作。');
                     requireCondition(!s.adminLease || s.adminLease.id === tabId || s.adminLease.expires <= now(), '另一個控台持有控制權，請先按「取得／接手控制權」。');
-                    requireCondition(s.schemaVersion === 2 && s.sessionId, '請先完全重置遊戲，初始化新版資料。');
+                    requireCondition(s.schemaVersion === 4 && s.sessionId, '請先完全重置遊戲，初始化新版資料。');
+                    mergeReceipts(s);
                     mutator(s);
                     s.controlRevision++;
                     s.adminLease = { id: tabId, expires: now() + 20000 };
@@ -1512,19 +1649,25 @@
                 }, '已取得本控台控制權。');
             };
             const closeTimer = s => {
-                s.timer = effectiveTime(s);
-                s.isTimerRunning = false;
-                s.deadline = 0;
+                s.timerMs = remainingMs(s); s.timer = Math.ceil(s.timerMs / 1000);
+                const window = s.timerWindows[s.timerWindowId];
+                if (window && window.closedAt == null) window.closedAt = Math.min(now(), window.deadline);
+                s.isTimerRunning = false; s.deadline = 0;
             };
             const openTimer = s => {
+                requireCondition(!s.submissionClosing, '正在確認收件，請先完成結算。');
                 requireCondition(['CATEGORY_VOTE', 'CARD_PLAY', 'QUESTION'].includes(s.phase), '本階段不能開始倒數。');
                 requireCondition(!(s.phase === 'CARD_PLAY' && s.cardSettled), '卡片已結算，請出題。');
-                requireCondition(s.timer > 0, '時間已結束；如需延長，請先重設倒數。');
-                s.deadline = now() + s.timer * 1000;
-                s.isTimerRunning = true;
+                requireCondition(s.timerMs > 0, '時間已結束；如需延長，請先重設倒數。');
+                const id = uid();
+                s.deadline = now() + s.timerMs;
+                const choices = s.phase === 'CATEGORY_VOTE' ? categories.filter(c => remaining(s)[c] > 0)
+                    : s.phase === 'CARD_PLAY' ? ['none', ...availableCards(s).map(c => c.id)] : Object.keys(questions.value[s.currentQuestionIndex].options);
+                s.timerWindows[id] = { phase: s.phase, roundId: s.roundId, openedAt: now(), deadline: s.deadline, closedAt: null, choices };
+                s.timerWindowId = id; s.isTimerRunning = true;
             };
             const selectCard = (s, cardId) => {
-                requireCondition(s.phase === 'CARD_PLAY' && !s.isTimerRunning && !s.cardSettled, '只能在卡片投票停止、尚未結算時選擇卡片。');
+                requireCondition(s.phase === 'CARD_PLAY' && !s.isTimerRunning && !s.cardSettled && !s.submissionClosing, '只能在卡片投票停止、尚未結算時選擇卡片。');
                 if (cardId !== 'none') {
                     const card = availableCards(s).find(c => c.id === cardId);
                     requireCondition(!!card, '該卡片已使用或不存在。');
@@ -1552,12 +1695,13 @@
                         const before = takeGameplay(s);
                         s.activeTeam = s.nextTeam || s.activeTeam;
                         s.roundId = uid();
+                        s.timerWindows = {}; s.timerWindowId = null; s.submissionClosing = false;
                         s.phase = 'CATEGORY_VOTE';
                         s.tableVotes = {}; s.tableCardVotes = {}; s.answers = {};
                         s.activeCards = { red: null, blue: null };
                         s.selectedCategory = null; s.categorySettled = false; s.cardSettled = false;
                         s.isTieVote = false; s.isScored = false; s.showCardNotice = false; s.lastRevealResult = null;
-                        s.timer = 15; s.deadline = 0; s.isTimerRunning = false;
+                        s.timer = 15; s.timerMs = 15000; s.deadline = 0; s.isTimerRunning = false;
                         s.systemMessage = '類別投票準備完成，請主持人啟動倒數。';
                         s.roundLogs[s.roundId] = { roundNumber: s.usedQuestionIds.length + 1, team: s.activeTeam, startedAt: now(), before };
                     });
@@ -1575,6 +1719,7 @@
                     : `確定手動選擇${team === 'red' ? '紅隊' : '藍隊'}進攻？已結算的本輪結果保持不變，所選隊伍將於下一輪生效。`;
                 if (!confirm(warning)) return;
                 await adminWrite(s => {
+                    requireCondition(!s.submissionClosing, '正在確認收件，請先完成結算。');
                     requireCondition(s.phase !== 'GAME_OVER', '比賽已結束；如需繼續，請先使用還原功能。');
                     s.nextTeam = team;
                     if (['CATEGORY_VOTE', 'CARD_PLAY', 'QUESTION'].includes(s.phase)) {
@@ -1595,12 +1740,12 @@
                             }
                         }
                         delete s.roundLogs[oldId];
-                        s.roundId = uid(); s.activeTeam = team; s.phase = 'CATEGORY_VOTE';
+                        s.roundId = uid(); s.activeTeam = team; s.phase = 'CATEGORY_VOTE'; s.timerWindows = {}; s.timerWindowId = null; s.submissionClosing = false;
                         s.answers = {}; s.tableVotes = {}; s.tableCardVotes = {};
                         s.activeCards = { red: null, blue: null }; s.selectedCategory = null;
                         s.categorySettled = false; s.cardSettled = false; s.isTieVote = false;
                         s.isScored = false; s.lastRevealResult = null; s.showCardNotice = false;
-                        s.timer = 15; s.deadline = 0; s.isTimerRunning = false;
+                        s.timer = 15; s.timerMs = 15000; s.deadline = 0; s.isTimerRunning = false;
                         s.roundLogs[s.roundId] = { roundNumber: log.roundNumber, team, startedAt: now(), before: clone(log.before), switchedFrom: oldId };
                         s.systemMessage = `已手動切換為${team === 'red' ? '紅隊' : '藍隊'}進攻，本輪重新票選類別，請主持人啟動倒數。`;
                     } else {
@@ -1610,32 +1755,46 @@
                 }, '已手動設定進攻方。');
             };
             const confirmCategory = async () => {
+                if (pending.value || settling.value) return;
                 if (gameState.isTimerRunning && effectiveTimer.value > 0 && !confirm('類別投票尚未結束，確定提前收票並結算？')) return;
+                settling.value = true;
+                try {
+                const collected = await closeAndCollect('CATEGORY_VOTE');
+                if (!collected) return;
                 const random = Math.random();
                 await adminWrite(s => {
+                    requireCondition(matchesCollection(s, collected), '收件確認後進度已還原或更新，本次結算已取消。');
                     requireCondition(s.phase === 'CATEGORY_VOTE' && !s.categorySettled, '目前不是待結算的類別投票。');
-                    closeTimer(s);
+                    s.submissionClosing = false; closeTimer(s);
                     const choices = categories.filter(c => remaining(s)[c] > 0);
                     requireCondition(choices.length > 0, '所有題目已用完。');
                     const max = Math.max(...choices.map(c => s.categoryVotes[c] || 0));
                     const ties = choices.filter(c => (s.categoryVotes[c] || 0) === max);
                     s.selectedCategory = ties[Math.floor(random * ties.length)];
                     s.isTieVote = ties.length > 1; s.categorySettled = true;
-                    s.phase = 'CARD_PLAY'; s.timer = 15; s.tableCardVotes = {}; s.cardSettled = false;
+                    s.phase = 'CARD_PLAY'; s.timer = 15; s.timerMs = 15000; s.tableCardVotes = {}; s.cardSettled = false;
                     s.systemMessage = `類別結算：${s.selectedCategory}，${max}票${ties.length > 1 ? '（同票隨機抽選）' : ''}。請開始卡片投票。`;
                 });
+                } finally { settling.value = false; }
             };
             const confirmCardVote = async (triggerNotice = true) => {
+                if (pending.value || settling.value) return;
                 if (gameState.isTimerRunning && effectiveTimer.value > 0 && !confirm('卡片投票尚未結束，確定提前收票並結算？')) return;
+                settling.value = true;
+                try {
+                const collected = await closeAndCollect('CARD_PLAY');
+                if (!collected) return;
                 const random = Math.random();
                 await adminWrite(s => {
+                    requireCondition(matchesCollection(s, collected), '收件確認後進度已還原或更新，本次結算已取消。');
                     requireCondition(s.phase === 'CARD_PLAY' && !s.cardSettled, '卡片已結算或目前不在卡片階段。');
-                    closeTimer(s);
+                    s.submissionClosing = false; closeTimer(s);
                     const choice = pickCardByVotes(s, random);
                     selectCard(s, choice);
                     s.showCardNotice = triggerNotice;
                     s.systemMessage = `卡片結算：${choice === 'none' ? '不使用戰術卡' : cardsFor(s, s.activeTeam).find(c => c.id === choice).name}。`;
                 });
+                } finally { settling.value = false; }
             };
             const closeCardNotice = () => adminWrite(s => { requireCondition(s.phase === 'CARD_PLAY' && s.cardSettled, '目前沒有待關閉的卡片宣告。'); s.showCardNotice = false; });
             const startQuestionPhase = async () => {
@@ -1648,19 +1807,19 @@
                     s.currentQuestionIndex = questions.value.findIndex(item => item.id === q.id);
                     s.usedQuestionIds.push(q.id);
                     s.answers = {}; s.phase = 'QUESTION'; s.isScored = false; s.lastRevealResult = null; s.showCardNotice = false;
-                    s.timer = questionSeconds(q);
+                    s.timer = questionSeconds(q); s.timerMs = s.timer * 1000;
                     requireCondition(!!s.roundLogs[s.roundId], '本輪缺少還原紀錄，請初始化新版遊戲。');
-                    s.roundLogs[s.roundId].questionSnapshot = takeGameplay(s);
                     openTimer(s);
+                    s.roundLogs[s.roundId].questionSnapshot = takeGameplay(s);
                     s.systemMessage = `第${s.usedQuestionIds.length}題開放，請進攻方作答。`;
                 });
             };
-            const toggleTimer = () => adminWrite(s => { if (s.isTimerRunning) closeTimer(s); else openTimer(s); });
+            const toggleTimer = () => adminWrite(s => { requireCondition(!s.submissionClosing, '正在確認收件，請先完成結算。'); if (s.isTimerRunning) closeTimer(s); else openTimer(s); });
             const resetTimer = async () => {
                 if (!confirm('重設時間會保留已送出的票與答案，確定延長本階段？')) return;
                 await adminWrite(s => {
-                    requireCondition(['CATEGORY_VOTE', 'CARD_PLAY', 'QUESTION'].includes(s.phase) && !(s.phase === 'CARD_PLAY' && s.cardSettled), '本階段不能重設時間。');
-                    closeTimer(s); s.timer = s.phase === 'QUESTION' ? questionSeconds(questions.value[s.currentQuestionIndex]) : 15;
+                    requireCondition(!s.submissionClosing && ['CATEGORY_VOTE', 'CARD_PLAY', 'QUESTION'].includes(s.phase) && !(s.phase === 'CARD_PLAY' && s.cardSettled), '本階段不能重設時間。');
+                    closeTimer(s); s.timer = s.phase === 'QUESTION' ? questionSeconds(questions.value[s.currentQuestionIndex]) : 15; s.timerMs = s.timer * 1000;
                     s.systemMessage = '時間已重設，已提交資料保留；請再啟動倒數。';
                 });
             };
@@ -1680,23 +1839,86 @@
                     s.systemMessage = '主持人撤銷卡片，本輪不使用戰術卡。';
                 });
             };
-            const submitChoice = (phase, field, choice) => {
-                if (!choice) return;
-                const captured = { sessionId: gameState.sessionId, roundId: gameState.roundId, revision: gameState.controlRevision, table: Number(selectedMobileTable.value), deadline: gameState.deadline };
+            const submitChoice = async (phase, field, choice) => {
+                if (!choice || pending.value) return;
+                if (!canSubmit.value || gameState.phase !== phase) { feedback.value = '目前不能提交，請確認連線、桌號及倒數。'; return; }
+                const captured = {
+                    namespace: gameState.submissionNamespace, sessionId: gameState.sessionId,
+                    roundId: gameState.roundId, phase, windowId: gameState.timerWindowId,
+                    table: Number(selectedMobileTable.value), submittedAt: now(), deadline: gameState.deadline,
+                    deviceId, choice, requestId: uid()
+                };
                 const key = 'table_' + captured.table;
-                return runWrite(s => {
-                    requireCondition(s && s.sessionId === captured.sessionId && s.roundId === captured.roundId && s.controlRevision === captured.revision && s.phase === phase && s.deadline === captured.deadline, '階段或輪次已更新，這次提交已取消。');
-                    requireCondition(s.isTimerRunning && s.deadline > now(), '時間已結束或暫停，無法提交。');
-                    requireCondition(s.occupiedTables[key]?.deviceId === deviceId && isTableLocked.value, '桌號已解除或移交，請重新鎖定桌號。');
-                    requireCondition(teamOf(captured.table) === s.activeTeam, '目前為防守方，不能提交。');
-                    requireCondition(!s[field][key], '本桌已送出，本輪不能重複提交。');
-                    if (phase === 'CATEGORY_VOTE') requireCondition(categories.includes(choice) && remaining(s)[choice] > 0 && !s.categorySettled, '類型不可選或已結算。');
-                    if (phase === 'CARD_PLAY') requireCondition(!s.cardSettled && (choice === 'none' || availableCards(s).some(c => c.id === choice)), '卡片不可選或已結算。');
-                    if (phase === 'QUESTION') requireCondition(Object.hasOwn(questions.value[s.currentQuestionIndex].options, choice), '答案選項無效。');
-                    s[field][key] = choice;
-                    s.systemMessage = `#${String(captured.table).padStart(2, '0')}桌已提交${phase === 'QUESTION' ? '答案' : '投票'}。`;
-                    return normalize(s);
-                }, '已由伺服器確認送出。', captured.deadline);
+                const url = receiptBase + captured.namespace + '/' + captured.roundId + '/' + phase + '/' + key + '.json';
+                pending.value = true;
+                feedback.value = '正在送出，等待伺服器收件確認…';
+                let dispatched = false;
+                const confirmRecord = async record => {
+                    if (!record || record.deviceId !== deviceId) return false;
+                    const { data } = await fetchJSON(stateURL);
+                    const s = normalize(data);
+                    if (!validReceipt(s, record, phase, key)) {
+                        const history = s.history[record.roundId];
+                        const historyField = { CATEGORY_VOTE: 'categoryVotes', CARD_PLAY: 'cardVotes', QUESTION: 'answers' }[phase];
+                        if (s.sessionId === record.sessionId && s.submissionNamespace === record.namespace && history?.[historyField]?.[key] === record.choice) {
+                            feedback.value = `已由伺服器收件，並納入第${history.roundNumber}輪結算。`; return true;
+                        }
+                        return false;
+                    }
+                    if (s.submissionNamespace === gameState.submissionNamespace && s.roundId === gameState.roundId) {
+                        const round = receipts.value[s.roundId] || {};
+                        receipts.value = { ...receipts.value, [s.roundId]: { ...round, [phase]: { ...(round[phase] || {}), [key]: record } } };
+                        renderReceipts();
+                    }
+                    feedback.value = record.requestId === captured.requestId ? '已由伺服器收件確認；截止後統一結算。' : '本桌先前已成功送出，保留首次提交結果。';
+                    return true;
+                };
+                try {
+                    for (let attempt = 0; attempt < 3; attempt++) {
+                        requireCondition(ready.value && navigator.onLine !== false, '連線中斷，未自動補送；請恢復連線後確認收件結果。');
+                        const { data } = await fetchJSON(stateURL);
+                        const s = normalize(data);
+                        const window = s.timerWindows[captured.windowId];
+                        requireCondition(s.schemaVersion === 4 && s.submissionNamespace === captured.namespace && s.sessionId === captured.sessionId && s.roundId === captured.roundId && s.phase === phase, '輪次或階段已更新，提交已取消。');
+                        requireCondition(window && window.phase === phase && captured.submittedAt < windowEnd(window) && now() < windowEnd(window) + GRACE_MS, '已超過有效提交或傳輸寬限時間。');
+                        requireCondition(s.occupiedTables[key]?.deviceId === deviceId && isTableLocked.value && teamOf(captured.table) === s.activeTeam, '桌號或進攻隊伍已變更，提交已取消。');
+                        requireCondition(window.choices.includes(choice), '選項不可使用。');
+                        if (s[field][key]) { feedback.value = '本桌先前已成功送出，保留首次提交結果。'; return true; }
+                        requireCondition(!(phase === 'CATEGORY_VOTE' && s.categorySettled) && !(phase === 'CARD_PLAY' && s.cardSettled) && !(phase === 'QUESTION' && s.isScored), '本階段已結算。');
+                        const budget = Math.max(1, Math.min(6000, windowEnd(window) + GRACE_MS - now()));
+                        const current = await fetchJSON(url, { headers: { 'X-Firebase-ETag': 'true' } }, budget);
+                        if (validReceipt(s, current.data, phase, key)) {
+                            if (!await confirmRecord(current.data)) fail('本桌已提交，請查看控台紀錄。');
+                            return true;
+                        }
+                        const etag = current.response.headers.get('ETag');
+                        requireCondition(!!etag, '未取得桌號提交版本，已停止寫入。');
+                        requireCondition(ready.value && now() < windowEnd(window) + GRACE_MS, '傳輸寬限已結束，未補送。');
+                        const controller = new AbortController(); controllers.add(controller);
+                        const timeout = setTimeout(() => controller.abort(), Math.max(1, windowEnd(window) + GRACE_MS - now()));
+                        try {
+                            dispatched = true;
+                            const response = await fetch(url, { method: 'PUT', cache: 'no-store', signal: controller.signal,
+                                headers: { 'Content-Type': 'application/json', 'If-Match': etag },
+                                body: JSON.stringify({ ...captured, receivedAt: { '.sv': 'timestamp' } }) });
+                            if (response.status === 412) continue;
+                            requireCondition(response.ok, '提交被拒絕，請檢查 Firebase 提交路徑權限。');
+                            const record = await response.json();
+                            requireCondition(await confirmRecord(record), '伺服器收到紀錄，但本輪有效性尚未確認；請查看控台結算。');
+                            return true;
+                        } finally { clearTimeout(timeout); controllers.delete(controller); }
+                    }
+                    fail('本桌同時提交衝突，請查看是否已有首次提交結果。');
+                } catch (err) {
+                    // A lost HTTP reply is ambiguous. Read the exact table slot; NEVER replay the write offline.
+                    if (dispatched && ready.value) {
+                        try { const { data } = await fetchJSON(url); if (await confirmRecord(data)) return true; } catch {}
+                    }
+                    feedback.value = err.name === 'AbortError'
+                        ? '連線中斷或逾時，收件尚未確認；重新連線後會讀取本桌紀錄，不會自動補送。'
+                        : err.message;
+                    return false;
+                } finally { pending.value = false; }
             };
             const voteCategory = cat => submitChoice('CATEGORY_VOTE', 'tableVotes', cat);
             const voteCard = id => submitChoice('CARD_PLAY', 'tableCardVotes', id);
@@ -1713,14 +1935,14 @@
                 // Save intent before request: an uncertain response can be recovered without stealing a table.
                 storage.set('mlb_locked_v2', JSON.stringify({ sessionId, table }));
                 const success = await runWrite(s => {
-                    requireCondition(s && s.schemaVersion === 2 && s.sessionId && s.sessionId === sessionId, '遊戲尚未初始化或已重置。');
+                    requireCondition(s && s.schemaVersion === 4 && s.sessionId && s.sessionId === sessionId, '遊戲尚未初始化或已重置。');
                     requireCondition(!s.occupiedTables[key] || s.occupiedTables[key].deviceId === deviceId, '此桌已被另一裝置鎖定，請聯絡主持人。');
                     requireCondition(!Object.entries(s.occupiedTables).some(([k, o]) => k !== key && o.deviceId === deviceId), '本裝置已鎖定其他桌號，請先由主持人解鎖。');
                     s.occupiedTables[key] = { deviceId, tableNum: table, time: now() };
                     s.systemMessage = `#${String(table).padStart(2, '0')}桌已鎖定。`;
                     return s;
                 }, '桌號已鎖定。');
-                if (success) isTableLocked.value = true;
+                if (success) restoreTable(gameState);
             };
             const restoreTable = s => {
                 let stored;
@@ -1745,7 +1967,7 @@
                 if (new URLSearchParams(location.search).get('test') !== '1') { feedback.value = '正式模式禁用模擬作答；測試請用網址 ?test=1#admin。'; return; }
                 if (!confirm('測試模式：將覆蓋進攻方十桌答案，確定？')) return;
                 await adminWrite(s => {
-                    requireCondition(s.phase === 'QUESTION' && !s.isScored && !s.isTimerRunning, '請在未结算的答題階段暫停後測試。');
+                    requireCondition(s.phase === 'QUESTION' && !s.isScored && !s.isTimerRunning, '請在未結算的答題階段暫停後測試。');
                     const options = Object.keys(questions.value[s.currentQuestionIndex].options);
                     for (let i = s.activeTeam === 'red' ? 1 : 11; i <= (s.activeTeam === 'red' ? 10 : 20); i++) s.answers['table_' + i] = options[Math.floor(Math.random() * options.length)];
                     s.systemMessage = '測試：已模擬十桌答案。';
@@ -1753,13 +1975,19 @@
             };
             const adjustScore = async (team, amount) => {
                 if (!confirm(`確定調整${team === 'red' ? '紅隊' : '藍隊'} ${amount > 0 ? '+' : ''}${amount}分？`)) return;
-                await adminWrite(s => { requireCondition(['red', 'blue'].includes(team), '隊伍無效。'); const previous = s.scores[team]; s.scores[team] = Math.max(0, previous + amount); appendAudit(s, { kind: '手動調整分數', team, amount: s.scores[team] - previous, previousScores: { [team]: previous } }); s.systemMessage = '主持人已手動調整分數。'; });
+                await adminWrite(s => { requireCondition(['red', 'blue'].includes(team) && Number.isSafeInteger(amount) && Math.abs(amount) <= 1000000, '隊伍或調整分數無效。'); const previous = s.scores[team]; s.scores[team] = Math.max(0, previous + amount); appendAudit(s, { kind: '手動調整分數', team, amount: s.scores[team] - previous, previousScores: { [team]: previous } }); s.systemMessage = '主持人已手動調整分數。'; });
             };
             const revealAnswer = async () => {
+                if (pending.value || settling.value) return;
                 if (gameState.isTimerRunning && effectiveTimer.value > 0 && !confirm('答題尚未結束，確定提前收卷並結算？')) return;
+                settling.value = true;
+                try {
+                const collected = await closeAndCollect('QUESTION');
+                if (!collected) return;
                 await adminWrite(s => {
+                    requireCondition(matchesCollection(s, collected), '收件確認後進度已還原或更新，本次結算已取消。');
                     requireCondition(s.phase === 'QUESTION' && !s.isScored, '只能結算尚未公布答案的本題。');
-                    closeTimer(s);
+                    s.submissionClosing = false; closeTimer(s);
                     const attacking = s.activeTeam;
                     const defending = attacking === 'red' ? 'blue' : 'red';
                     const q = questions.value[s.currentQuestionIndex];
@@ -1784,6 +2012,7 @@
                     s.systemMessage = `正解${q.answer}，${correctCount}桌答對，進帳${addedPoints}分。`;
                     // Keep activeTeam until next round so result UI still shows the attacking side.
                 });
+                } finally { settling.value = false; }
             };
             const appendAudit = (s, entry) => {
                 s.auditLog[uid()] = { ...entry, at: now() };
@@ -1807,10 +2036,11 @@
                     for (const key of removedIds) { delete s.roundLogs[key]; delete s.history[key]; }
                     for (const key of gameplayKeys) s[key] = clone(checkpoint[key] === undefined ? freshState()[key] : checkpoint[key]);
                     s.isTimerRunning = false; s.deadline = 0; s.showCardNotice = false;
+                    s.submissionNamespace = uid(); s.timerWindows = {}; s.timerWindowId = null; s.submissionClosing = false;
                     if (mode === 'replay') {
                         const newId = uid();
                         s.roundId = newId; s.phase = 'QUESTION'; s.answers = {}; s.isScored = false; s.lastRevealResult = null;
-                        s.timer = questionSeconds(questions.value[s.currentQuestionIndex]);
+                        s.timer = questionSeconds(questions.value[s.currentQuestionIndex]); s.timerMs = s.timer * 1000;
                         s.roundLogs[newId] = { roundNumber: target.roundNumber, team: s.activeTeam, startedAt: now(), before: clone(target.before), questionSnapshot: takeGameplay(s), replayOf: id };
                         s.systemMessage = `已還原第${target.roundNumber}輪同題，請主持人啟動倒數重新作答。`;
                     } else {
@@ -1818,14 +2048,191 @@
                     }
                 }, '還原完成，請確認分數與目前階段後繼續。');
             };
-            const exportGameLog = () => {
-                if (!isAdminAuthenticated.value || currentRoute.value !== 'admin') return;
-                const payload = { format: 'MLB-live-game-log-v3', exportedAt: now(), sessionId: gameState.sessionId, gameplay: takeGameplay(gameState), history: clone(gameState.history), roundLogs: clone(gameState.roundLogs), auditLog: clone(gameState.auditLog) };
-                const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' }));
-                const link = document.createElement('a');
-                link.href = url; link.download = 'MLB比賽紀錄_' + new Date(now()).toISOString().replace(/[:.]/g, '-') + '.json';
-                document.body.appendChild(link); link.click(); link.remove();
-                setTimeout(() => URL.revokeObjectURL(url), 10000);
+            const finishEarly = async () => {
+                if (pending.value || settling.value) return;
+                if (!confirm('確定提前結束整場比賽並公布目前勝負？\n只保留已結算輪次及手動調分。尚未結算的本輪不計分，會退還本輪題目與卡片；若要計入本題，請先完成「公布答案／結算」再結束。')) return;
+                await adminWrite(s => {
+                    requireCondition(s.phase !== 'GAME_OVER' && !s.submissionClosing, '比賽已結束或正在確認收件。');
+                    const unfinished = ['CATEGORY_VOTE', 'CARD_PLAY', 'QUESTION'].includes(s.phase) && !s.isScored;
+                    if (unfinished) {
+                        const log = s.roundLogs[s.roundId];
+                        requireCondition(!!log, '缺少本輪紀錄，請先使用備份還原。');
+                        appendAudit(s, { kind: '提前結束，撤回未結算輪次', roundNumber: log.roundNumber, abandonedGameplay: takeGameplay(s), archivedLogs: { [s.roundId]: clone(log) } });
+                        if (s.phase === 'QUESTION') s.usedQuestionIds = s.usedQuestionIds.filter(id => id !== questions.value[s.currentQuestionIndex].id);
+                        for (const team of ['red', 'blue']) {
+                            const active = s.activeCards[team];
+                            if (active) { const card = cardsFor(s, team).find(c => c.id === active.id); if (card) card.used = false; }
+                        }
+                        delete s.roundLogs[s.roundId];
+                        s.roundId = ''; s.tableVotes = {}; s.tableCardVotes = {}; s.answers = {};
+                        s.activeCards = { red: null, blue: null }; s.lastRevealResult = null; s.isScored = false;
+                        s.categorySettled = false; s.cardSettled = false; s.selectedCategory = null;
+                    }
+                    closeTimer(s); s.timerWindows = {}; s.timerWindowId = null; s.submissionNamespace = uid();
+                    s.submissionClosing = false; s.showCardNotice = false; s.endedEarly = s.usedQuestionIds.length < 10;
+                    s.phase = 'GAME_OVER'; s.systemMessage = `比賽${s.endedEarly ? '提前' : ''}結束，已結算${Object.keys(s.history).length}題。`;
+                    appendAudit(s, { kind: '主持人結束比賽', scores: clone(s.scores), settledRounds: Object.keys(s.history).length });
+                }, '已公布目前勝負。');
+            };
+            const questionFingerprint = () => {
+                const text = JSON.stringify(questions.value); let hash = 2166136261;
+                for (let i = 0; i < text.length; i++) { hash ^= text.charCodeAt(i); hash = Math.imul(hash, 16777619); }
+                return 'qbank-' + (hash >>> 0).toString(16);
+            };
+            const backupPayload = () => {
+                const gameplay = takeGameplay(gameState);
+                gameplay.timerMs = remainingMs(gameState); gameplay.timer = Math.ceil(gameplay.timerMs / 1000);
+                // Local receipt listener may be behind: exports are finalized by a fresh online server read below.
+                return { format: 'MLB-live-game-log-v4', questionFingerprint: questionFingerprint(), exportedAt: now(), sessionId: gameState.sessionId, gameplay,
+                    history: clone(gameState.history), roundLogs: clone(gameState.roundLogs), auditLog: clone(gameState.auditLog) };
+            };
+            const validateBackup = payload => {
+                const bad = message => requireCondition(false, '備份不適用：' + message);
+                const object = x => x && typeof x === 'object' && !Array.isArray(x);
+                requireCondition(object(payload) && ['MLB-live-game-log-v3', 'MLB-live-game-log-v4'].includes(payload.format), '不是本遊戲支援的 v3／v4 JSON 備份。');
+                if (payload.format.endsWith('v4') && payload.questionFingerprint !== questionFingerprint()) bad('題庫版本不同，不能匯入。');
+                let nodes = 0;
+                const inspect = (x, depth = 0) => {
+                    if (++nodes > 200000 || depth > 50) bad('資料結構過大。');
+                    if (typeof x === 'number' && !Number.isFinite(x)) bad('數值無效。');
+                    if (typeof x === 'string' && x.length > 30000) bad('文字過長。');
+                    if (x && typeof x === 'object') for (const [key, value] of Object.entries(x)) {
+                        if (['__proto__', 'prototype', 'constructor'].includes(key) || /[.#$\[\]/\u0000-\u001f\u007f]/.test(key)) bad('含不安全或不合法的資料欄位。');
+                        inspect(value, depth + 1);
+                    }
+                }; inspect(payload);
+                const integer = (x, min, max) => Number.isSafeInteger(x) && x >= min && x <= max;
+                const score = x => object(x) && ['red', 'blue'].every(t => integer(x[t], 0, 1000000));
+                const allIds = questions.value.map(q => q.id);
+                const checkTables = (map, team, choices) => {
+                    if (!object(map)) bad('逐桌紀錄格式錯誤。');
+                    for (const [key, choice] of Object.entries(map)) {
+                        if (!/^table_(?:[1-9]|1[0-9]|20)$/.test(key) || teamOf(Number(key.slice(6))) !== team || !choices.includes(choice)) bad('桌號、隊伍或提交選項不一致。');
+                    }
+                };
+                const checkGameplay = input => {
+                    if (!object(input)) bad('缺少遊戲快照。');
+                    for (const key of ['phase', 'activeTeam', 'scores', 'currentQuestionIndex', 'usedQuestionIds', 'timer', 'isTimerRunning', 'deadline', 'categorySettled', 'cardSettled', 'isScored', 'activeCards', 'redCards', 'blueCards']) if (!(key in input)) bad('遊戲快照缺少必要欄位：' + key);
+                    const s = normalize(clone(input));
+                    if (!['LOBBY', 'CATEGORY_VOTE', 'CARD_PLAY', 'QUESTION', 'REVEAL', 'GAME_OVER'].includes(s.phase) || !['red', 'blue'].includes(s.activeTeam) || ![null, 'red', 'blue'].includes(s.nextTeam)) bad('流程或進攻方無效。');
+                    if (!score(s.scores) || !integer(s.currentQuestionIndex, 0, questions.value.length - 1) || !Array.isArray(input.usedQuestionIds) || s.usedQuestionIds.length > 10 || new Set(s.usedQuestionIds).size !== s.usedQuestionIds.length || s.usedQuestionIds.some(id => !allIds.includes(id))) bad('分數或題庫進度無效。');
+                    if (!Number.isFinite(s.timerMs) || s.timerMs < 0 || s.timerMs > 300000 || !Number.isFinite(s.deadline) || s.deadline < 0) bad('倒數時間無效。');
+                    for (const key of ['isScored', 'categorySettled', 'cardSettled', 'isTimerRunning', 'isTieVote', 'showCardNotice']) if (typeof s[key] !== 'boolean') bad('流程旗標無效。');
+                    if (s.selectedCategory !== null && !categories.includes(s.selectedCategory)) bad('題目類別不存在。');
+                    for (const team of ['red', 'blue']) {
+                        const expected = team === 'red' ? defaultRedCards : defaultBlueCards;
+                        const cards = cardsFor(s, team);
+                        if (!Array.isArray(cards) || cards.length !== 3 || cards.some((c, i) => !object(c) || c.id !== expected[i].id || typeof c.used !== 'boolean')) bad('卡片庫無效。');
+                        const active = s.activeCards[team];
+                        if (active && (!object(active) || !cards.some(c => c.id === active.id && c.used) || team !== s.activeTeam)) bad('啟用卡片與庫存不一致。');
+                        // Use this file's wording; import only trusted card IDs and used flags.
+                        s[team + 'Cards'] = expected.map((c, i) => ({ ...c, used: cards[i].used }));
+                        s.activeCards[team] = active ? clone(s[team + 'Cards'].find(c => c.id === active.id)) : null;
+                    }
+                    const q = questions.value[s.currentQuestionIndex];
+                    checkTables(s.tableVotes, s.activeTeam, categories);
+                    checkTables(s.tableCardVotes, s.activeTeam, ['none', ...cardsFor(s, s.activeTeam).map(c => c.id)]);
+                    checkTables(s.answers, s.activeTeam, Object.keys(q.options));
+                    if (s.phase === 'CATEGORY_VOTE' && (s.categorySettled || s.cardSettled || s.isScored)) bad('類別階段旗標衝突。');
+                    if (s.phase === 'CARD_PLAY' && (!s.categorySettled || s.isScored || !s.selectedCategory)) bad('卡片階段旗標衝突。');
+                    if (['QUESTION', 'REVEAL'].includes(s.phase) && (!s.categorySettled || !s.cardSettled || s.selectedCategory !== q.category || !s.usedQuestionIds.includes(q.id))) bad('題目與結算進度衝突。');
+                    if (s.phase === 'QUESTION' && s.isScored || s.phase === 'REVEAL' && !s.isScored) bad('答案公布旗標衝突。');
+                    if (s.phase === 'GAME_OVER' && !s.endedEarly && s.usedQuestionIds.length !== 10) bad('未完成十題且無提前結束紀錄。');
+                    if (s.cardSettled && !s.categorySettled || s.isScored && (!s.cardSettled || !s.lastRevealResult)) bad('缺少必要結算結果。');
+                    if (s.lastRevealResult !== null && (!object(s.lastRevealResult) || !integer(s.lastRevealResult.correctCount, 0, 10) || !integer(s.lastRevealResult.addedPoints, 0, 43) || !integer(s.lastRevealResult.enemyDeduction, 0, 3))) bad('本題結算摘要無效。');
+                    return takeGameplay(s);
+                };
+                const gameplay = checkGameplay(payload.gameplay);
+                const history = clone(payload.history || {}), logs = clone(payload.roundLogs || {}), audit = clone(payload.auditLog || {});
+                if (!object(history) || !object(logs) || !object(audit) || Object.keys(logs).length > 10 || Object.keys(audit).length > 20) bad('輪次紀錄格式錯誤。');
+                const numbered = new Set();
+                for (const [id, log] of Object.entries(logs)) {
+                    if (!object(log) || !integer(log.roundNumber, 1, 10) || numbered.has(log.roundNumber) || !['red', 'blue'].includes(log.team)) bad('輪次編號或隊伍衝突。');
+                    numbered.add(log.roundNumber); log.before = checkGameplay(log.before);
+                    if (log.questionSnapshot) {
+                        log.questionSnapshot = checkGameplay(log.questionSnapshot);
+                        if (log.questionSnapshot.phase !== 'QUESTION' || log.questionSnapshot.roundId !== id || log.questionSnapshot.activeTeam !== log.team || log.questionSnapshot.usedQuestionIds.length !== log.roundNumber) bad('重答快照與輪次不一致。');
+                    }
+                }
+                for (const [id, record] of Object.entries(history)) {
+                    const log = logs[id], q = questions.value.find(q => q.id === record?.questionId);
+                    if (!object(record) || !log || !q || !log.questionSnapshot || record.team !== log.team || record.roundNumber !== log.roundNumber || record.category !== q.category || !score(record.scores) || !gameplay.usedQuestionIds.includes(q.id) || questions.value[log.questionSnapshot.currentQuestionIndex].id !== q.id) bad('已結算紀錄與題庫或快照不一致。');
+                    checkTables(record.categoryVotes || {}, record.team, categories);
+                    checkTables(record.cardVotes || {}, record.team, ['none', ...(record.team === 'red' ? defaultRedCards : defaultBlueCards).map(c => c.id)]);
+                    checkTables(record.answers || {}, record.team, Object.keys(q.options));
+                    if (!object(record.result) || !integer(record.result.correctCount, 0, 10) || !integer(record.result.addedPoints, 0, 43) || !integer(record.result.enemyDeduction, 0, 3)) bad('結算結果數值無效。');
+                    if (record.result.correctCount !== Object.values(record.answers || {}).filter(a => a === q.answer).length) bad('答對桌數與答案紀錄不一致。');
+                    if (record.card !== null && record.card !== undefined) {
+                        const expected = (record.team === 'red' ? defaultRedCards : defaultBlueCards).find(c => c.id === record.card?.id);
+                        if (!object(record.card) || !expected) bad('結算卡片不存在或隊伍不一致。');
+                        record.card = { ...expected, used: true };
+                    }
+                    const result = record.result, suffix = record.card?.id.slice(-1);
+                    let expectedPoints = result.correctCount * 2;
+                    if (suffix === '1') expectedPoints *= 2;
+                    if (suffix === '2') expectedPoints = result.correctCount >= 7 ? expectedPoints + 20 : 0;
+                    if (suffix === '3') expectedPoints += result.enemyDeduction;
+                    if (expectedPoints !== result.addedPoints || (suffix !== '3' || result.correctCount < 5) && result.enemyDeduction !== 0) bad('卡片效果與結算分數不一致。');
+                }
+                for (const entry of Object.values(audit)) if (!object(entry) || typeof entry.kind !== 'string' || !Number.isFinite(entry.at)) bad('操作紀錄格式錯誤。');
+                const consumed = new Set(Object.values(history).map(record => record.card?.id).filter(Boolean));
+                for (const id of consumed) if (![...gameplay.redCards, ...gameplay.blueCards].some(card => card.id === id && card.used)) bad('已結算的卡片與剩餘庫存衝突。');
+                if (gameplay.isScored) {
+                    const record = history[gameplay.roundId];
+                    if (!record || !['correctCount', 'addedPoints', 'enemyDeduction', 'statusText', 'statusType'].every(key => record.result[key] === gameplay.lastRevealResult[key]) || Object.keys(record.answers).length !== Object.keys(gameplay.answers).length || !Object.keys(record.answers).every(key => record.answers[key] === gameplay.answers[key])) bad('目前揭曉畫面與結算紀錄衝突。');
+                }
+                const unsettledQuestion = gameplay.phase === 'QUESTION' ? 1 : 0;
+                if (Object.keys(history).length + unsettledQuestion !== gameplay.usedQuestionIds.length || new Set(Object.values(history).map(r => r.questionId)).size !== Object.keys(history).length) bad('結算題數與已使用題目不一致。');
+                if (['CATEGORY_VOTE', 'CARD_PLAY', 'QUESTION', 'REVEAL'].includes(gameplay.phase) && !logs[gameplay.roundId]) bad('缺少目前輪次還原快照。');
+                return { gameplay, history, roundLogs: logs, auditLog: audit, legacy: payload.format.endsWith('v3') };
+            };
+            const importGameLog = async event => {
+                const file = event?.target?.files?.[0]; if (event?.target) event.target.value = '';
+                if (!file || pending.value || settling.value || !isAdminAuthenticated.value || currentRoute.value !== 'admin') return;
+                try {
+                    requireCondition(file.size <= 5 * 1024 * 1024, '備份超過5MB，無法匯入。');
+                    const data = validateBackup(JSON.parse(await file.text()));
+                    const rounds = Object.keys(data.history).length;
+                    if (!confirm(`確定以此備份取代目前比賽進度？\n已結算${rounds}題，紅隊${data.gameplay.scores.red}分、藍隊${data.gameplay.scores.blue}分。\n倒數將暫停；現場已鎖定桌號保留，舊請求不會補入。${data.legacy ? '\n這是v3備份，請先確認使用相同題庫。' : ''}\n建議先下載目前備份；此操作會替換現有輪次紀錄。`)) return;
+                    const session = gameState.sessionId, revision = gameState.controlRevision;
+                    await runWrite(raw => {
+                        requireCondition(!raw || raw.sessionId === session && raw.controlRevision === revision, '資料已更新，請重新確認匯入。');
+                        requireCondition(!raw?.adminLease || raw.adminLease.id === tabId || raw.adminLease.expires <= now(), '請先取得控台控制權。');
+                        const s = raw || freshState(uid());
+                        for (const key of gameplayKeys) s[key] = clone(data.gameplay[key]);
+                        s.history = clone(data.history); s.roundLogs = clone(data.roundLogs); s.auditLog = clone(data.auditLog);
+                        s.schemaVersion = 4; s.sessionId ||= uid(); s.submissionNamespace = uid();
+                        s.timerWindows = {}; s.timerWindowId = null; s.submissionClosing = false;
+                        s.isTimerRunning = false; s.deadline = 0; s.showCardNotice = false;
+                        s.controlRevision = (s.controlRevision || 0) + 1; s.adminLease = { id: tabId, expires: now() + 20000 };
+                        appendAudit(s, { kind: '匯入比賽備份', scores: clone(s.scores), settledRounds: rounds });
+                        s.systemMessage = '備份已還原，倒數暫停；請主持人確認階段、分數與桌號後繼續。';
+                        return normalize(s);
+                    }, '備份已匯入，請確認進度後啟動倒數。');
+                } catch (err) { feedback.value = '未匯入：' + err.message; }
+            };
+
+            const exportGameLog = async () => {
+                if (!isAdminAuthenticated.value || currentRoute.value !== 'admin' || pending.value || settling.value) return;
+                pending.value = true;
+                try {
+                    requireCondition(ready.value && initialized.value, '請先連線並初始化遊戲。');
+                    const { data: first } = await fetchJSON(stateURL);
+                    const s = normalize(first);
+                    const { data: round } = await fetchJSON(receiptBase + s.submissionNamespace + '/' + (s.roundId || '_lobby') + '.json');
+                    const { data: last } = await fetchJSON(stateURL);
+                    requireCondition(last?.sessionId === s.sessionId && last?.controlRevision === s.controlRevision && last?.submissionNamespace === s.submissionNamespace, '流程已更新，請重新下載備份。');
+                    acceptRoot(last);
+                    if (s.submissionNamespace === receiptNamespace && s.roundId) { receipts.value = { ...receipts.value, [s.roundId]: round || {} }; renderReceipts(); }
+                    const payload = backupPayload();
+                    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' }));
+                    const link = document.createElement('a'); link.href = url;
+                    link.download = 'MLB比賽備份_' + new Date(now()).toISOString().replace(/[:.]/g, '-') + '.json';
+                    document.body.appendChild(link); link.click(); link.remove();
+                    setTimeout(() => URL.revokeObjectURL(url), 10000);
+                    feedback.value = '備份已下載；進行中的提交只包含此刻已收件者，建議每題結算後下載。';
+                } catch (err) { feedback.value = '未產生備份：' + err.message; }
+                finally { pending.value = false; }
             };
             const resetEntireGame = async () => {
                 if (!isAdminAuthenticated.value || currentRoute.value !== 'admin') return;
@@ -1860,7 +2267,7 @@
                     await atomicWrite(s => {
                         if (!s || s.sessionId !== sessionId || s.adminLease?.id !== tabId || s.adminLease.expires <= now()) return;
                         if (s.isTimerRunning && s.deadline <= now()) {
-                            closeTimer(s); s.timer = 0; s.controlRevision++;
+                            closeTimer(s); s.timer = 0; s.timerMs = 0; s.controlRevision++;
                             s.systemMessage = '時間已結束，請主持人結算。';
                         }
                         s.adminLease.expires = now() + 20000;
@@ -1882,8 +2289,10 @@
                 try {
                     const response = await fetch(stateURL, { cache: 'no-store', signal: controller.signal });
                     if (!response.ok) throw new Error('read');
-                    await response.json();
+                    const current = await response.json();
                     if (epoch !== connectionEpoch || !isConnected.value) return;
+                    if (offsetKnown) calibrateClock(clockOffset, true);
+                    acceptRoot(current);
                     hasSnapshot.value = true;
                     restoreTable(gameState);
                     connectionMessage.value = '連線正常';
@@ -1904,7 +2313,22 @@
                     connectionMessage.value = '連線中斷，送出已停用；恢復連線後會重新同步桌號及本輪結果。';
                 };
                 window.addEventListener('offline', disconnect);
-                db.ref('.info/serverTimeOffset').on('value', snap => { clockOffset = Number(snap.val()) || 0; offsetKnown = true; clockReady.value = true; });
+                // Some mobile browsers stop performance.now during sleep. Reconnect the SDK to
+                // obtain a fresh server offset before enabling input after a wall/monotonic mismatch.
+                let wakeWall = Date.now(), wakeMono = monotonic();
+                const checkWakeClock = () => {
+                    const wall = Date.now(), mono = monotonic();
+                    const mismatch = Math.abs((wall - wakeWall) - (mono - wakeMono)) > 2000;
+                    wakeWall = wall; wakeMono = mono;
+                    if (mismatch && isConnected.value) {
+                        disconnect();
+                        connectionMessage.value = '裝置時間或休眠狀態改變，重新校準伺服器時間中…';
+                        db.goOffline(); db.goOnline();
+                    }
+                };
+                window.addEventListener('pageshow', checkWakeClock);
+                if (typeof document !== 'undefined') document.addEventListener?.('visibilitychange', () => { if (!document.hidden) checkWakeClock(); });
+                db.ref('.info/serverTimeOffset').on('value', snap => { clockOffset = Number(snap.val()) || 0; calibrateClock(clockOffset); offsetKnown = true; clockReady.value = true; });
                 db.ref('.info/connected').on('value', snap => {
                     if (!snap.val()) { disconnect(); return; }
                     isConnected.value = true; clockReady.value = offsetKnown;
@@ -1913,11 +2337,10 @@
                     synchronize();
                 });
                 gameStateRef.on('value', snapshot => {
-                    const s = normalize(snapshot.val());
-                    Object.assign(gameState, s);
-                    restoreTable(s);
+                    acceptRoot(snapshot.val());
                 }, () => { hasSnapshot.value = false; connectionMessage.value = '讀取被拒絕，請檢查 Firebase 權限。'; });
                 setInterval(() => {
+                    checkWakeClock();
                     localClock.value = Date.now();
                     if (isConnected.value && !hasSnapshot.value && Date.now() - lastSyncAttempt > 3000) synchronize();
                     maintenance();
@@ -1937,8 +2360,8 @@
                 toggleTimer, resetTimer, useCard, cancelCard, submitMobileAnswer,
                 voteCategory, voteCard, simulateTableAnswers, adjustScore, revealAnswer,
                 resetEntireGame, broadcastState, ready, initialized, pending, canSubmit,
-                effectiveTimer, connectionMessage, feedback, ownsControl, claimAdmin,
-                selectedControlTeam, roundRecords, auditRecords, tableLabel, cardLabel, formatLogTime, restoreRound, exportGameLog
+                effectiveTimer, connectionMessage, feedback, ownsControl, claimAdmin, settling, receiptStatus,
+                selectedControlTeam, roundRecords, auditRecords, tableLabel, cardLabel, formatLogTime, restoreRound, exportGameLog, finishEarly, importGameLog
             };
         }
     }).mount('#app');
