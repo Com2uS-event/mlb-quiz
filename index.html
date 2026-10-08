@@ -96,11 +96,76 @@
             background-repeat: no-repeat;
             background-attachment: fixed;
         }
+
+        .stage-view .stage-screen > div:last-child { padding: 8px 16px; font-size: 15px; }
+        .stage-view .stage-screen > div:last-child .text-xl { font-size: 17px; }
+        /* Stage layout only: preserve all game logic and other routes. */
+        .stage-view .stage-main { padding: 10px 24px 14px; }
+        .stage-view .stage-screen { gap: 12px; padding-bottom: 0; }
+        .stage-view .stage-screen > * { margin-top: 0 !important; }
+        .stage-view .stage-panel { padding: 18px 22px; min-height: 0; justify-content: flex-start; }
+        .stage-view .stage-panel > [class*="max-w-"] { max-width: none; }
+        .stage-view .stage-scoreboard { padding: 12px 18px; }
+        .stage-view .stage-scoreboard > .grid { gap: 18px; }
+        .stage-view .stage-scoreboard > .grid > .col-span-4 { padding: 8px 12px; }
+        .stage-view .stage-scoreboard .text-9xl { font-size: 70px; }
+        .stage-view .stage-scoreboard .score-glow-blue,
+        .stage-view .stage-scoreboard .score-glow-red,
+        .stage-view .stage-scoreboard .tracking-widest.drop-shadow-\[0_0_20px_rgba\(255\,255\,255\,0\.2\)\] { font-size: clamp(44px, 6.5vh, 76px); line-height: 1; }
+        .stage-view .stage-scoreboard > div:last-child { margin-top: 10px; height: 10px; }
+        .stage-view .stage-question { display: grid; gap: 14px; max-width: none; align-items: start; }
+        .stage-view .stage-question > * { margin-top: 0 !important; min-width: 0; }
+        .stage-view .stage-question-meta { padding-bottom: 8px; }
+        .stage-view .stage-question-title { font-size: clamp(26px, 3.6vh, 44px); line-height: 1.35; letter-spacing: .02em; overflow-wrap: anywhere; }
+        .stage-view .stage-options { gap: 12px; padding-top: 0; }
+        .stage-view .stage-option { padding: 12px 16px; gap: 12px; min-width: 0; }
+        .stage-view .stage-option-key { width: 44px; height: 44px; font-size: 28px; }
+        .stage-view .stage-option-text { font-size: clamp(21px, 2.8vh, 32px); line-height: 1.35; }
+        .stage-view .stage-progress { padding: 10px 14px; }
+        .stage-view .stage-reveal { display: grid; gap: 12px; }
+        .stage-view .stage-reveal > * { margin-top: 0 !important; }
+        .stage-view .stage-result { padding: 14px; }
+        .stage-view .stage-result > .grid { gap: 8px; padding: 0; }
+        .stage-view .stage-result > .grid > div { padding: 10px 6px; }
+        .stage-view .stage-result .text-4xl { font-size: clamp(24px, 3.4vh, 36px); }
+        .stage-view .stage-explanation { padding: 14px 16px; }
+        .stage-view .stage-explanation p { font-size: clamp(18px, 2.45vh, 27px); line-height: 1.5; overflow-wrap: anywhere; }
+        @media (min-width: 1000px) {
+            .stage-view .stage-revealed { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+            .stage-view .stage-revealed .stage-question-meta,
+            .stage-view .stage-revealed .stage-question-title { grid-column: 1 / -1; }
+            .stage-view .stage-revealed .stage-options { grid-column: 1; grid-row: 3; }
+            .stage-view .stage-revealed .stage-reveal { grid-column: 2; grid-row: 3; }
+            .stage-view .stage-revealed .stage-option { padding: 12px; }
+            .stage-view .stage-revealed .stage-option-text { font-size: clamp(20px, 2.6vh, 30px); }
+        }
+        @media (min-width: 1000px) and (max-height: 800px) {
+            .stage-view .stage-main { padding: 8px 18px; }
+            .stage-view .stage-screen, .stage-view .stage-question { gap: 10px; }
+            .stage-view .stage-panel { padding: 12px 16px; }
+            .stage-view .stage-scoreboard { padding: 8px 12px; }
+            .stage-view .stage-scoreboard .text-sm, .stage-view .stage-scoreboard .text-lg { font-size: 13px; }
+            .stage-view .stage-scoreboard .text-xs { font-size: 11px; }
+            .stage-view .stage-scoreboard .inline-flex { padding: 4px 10px; margin-bottom: 4px; }
+            .stage-view .stage-scoreboard .text-3xl { font-size: 22px; }
+            .stage-view .stage-scoreboard .mt-2 { margin-top: 5px; }
+            .stage-view .stage-result, .stage-view .stage-explanation { padding: 10px 12px; }
+            .stage-view .stage-reveal { gap: 8px; }
+            .stage-view .stage-question-title { font-size: clamp(24px, 3.4vh, 30px); line-height: 1.3; }
+            .stage-view .stage-explanation p { font-size: clamp(16px, 2.2vh, 18px); line-height: 1.4; }
+            .stage-view .stage-explanation > div { font-size: 18px; }
+            .stage-view .stage-result > div:first-child { font-size: 16px; }
+            .stage-view .stage-result > .grid > div { padding: 8px 5px; }
+            .stage-view .stage-result .text-sm { font-size: 12px; }
+            .stage-view .stage-result .text-xl { font-size: 16px; }
+            .stage-view .stage-result .text-4xl { font-size: 26px; }
+
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
-<div id="app" class="flex-1 flex flex-col relative min-h-screen">
+<div id="app" class="flex-1 flex flex-col relative min-h-screen" :class="{ 'stage-view': currentRoute === 'screen' }">
 
     <!-- 舞台大螢幕全螢幕滿版球場背景 -->
     <div v-if="currentRoute === 'screen'" class="fixed inset-0 stadium-bg-screen z-0 pointer-events-none"></div>
@@ -194,7 +259,7 @@
         <span v-if="receiptStatus" class="text-red-300 ml-3">{{ receiptStatus }}</span>
         <span v-if="feedback" class="text-amber-200 ml-3">{{ feedback }}</span>
     </div>
-    <main class="flex-1 flex flex-col p-3 sm:p-6 w-full mx-auto relative z-10" :class="(currentRoute === 'screen' || currentRoute === 'admin') ? 'max-w-none px-4 sm:px-10 lg:px-12' : 'max-w-7xl'">
+    <main class="stage-main flex-1 flex flex-col p-3 sm:p-6 w-full mx-auto relative z-10" :class="(currentRoute === 'screen' || currentRoute === 'admin') ? 'max-w-none px-4 sm:px-10 lg:px-12' : 'max-w-7xl'">
     <fieldset :disabled="pending || settling || !ready" class="contents">
 
         <!-- PAGE 0: 系統門戶 (SYSTEM HUB) -->
@@ -262,10 +327,10 @@
 
 
         <!-- PAGE 1: 📺 舞台大螢幕獨立頁面 (#screen - 防遮擋特化：整體內容集中於上方 3/4 區域) -->
-        <section v-else-if="currentRoute === 'screen'" class="flex-1 flex flex-col justify-start space-y-4 sm:space-y-6 pb-[24vh]">
+        <section v-else-if="currentRoute === 'screen'" class="stage-screen flex-1 flex flex-col justify-start space-y-4 sm:space-y-6">
             
             <!-- 上方記分板區塊 (電子大螢幕面板) -->
-            <div class="bg-gradient-to-r from-mlbDark/90 via-slate-900/90 to-mlbDark/90 border-2 border-slate-700 rounded-3xl p-4 sm:p-6 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative overflow-hidden jumbotron-border backdrop-blur-sm">
+            <div class="stage-scoreboard bg-gradient-to-r from-mlbDark/90 via-slate-900/90 to-mlbDark/90 border-2 border-slate-700 rounded-3xl p-4 sm:p-6 shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative overflow-hidden jumbotron-border backdrop-blur-sm">
                 <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-600 via-amber-400 to-red-600"></div>
                 
                 <div class="grid grid-cols-12 gap-6 items-center">
@@ -344,7 +409,7 @@
             </div>
 
             <!-- 主舞台賽事播報面板 (極大化擴寬與字階) -->
-            <div class="bg-mlbCardBg/95 border-2 border-slate-700/80 rounded-3xl p-5 sm:p-8 flex-1 flex flex-col justify-center items-center shadow-2xl min-h-[380px] relative overflow-hidden jumbotron-border backdrop-blur-md">
+            <div class="stage-panel bg-mlbCardBg/95 border-2 border-slate-700/80 rounded-3xl p-5 sm:p-8 flex-1 flex flex-col justify-center items-center shadow-2xl min-h-[380px] relative overflow-hidden jumbotron-border backdrop-blur-md">
                 
                 <!-- PHASE: LOBBY -->
                 <div v-if="gameState.phase === 'LOBBY'" class="w-full text-center space-y-6">
@@ -461,8 +526,8 @@
                 </div>
 
                 <!-- PHASE: QUESTION & REVEAL (全寬度投影畫面、超粗體特大字階) -->
-                <div v-else-if="gameState.phase === 'QUESTION' || gameState.phase === 'REVEAL'" class="w-full max-w-6xl space-y-6 sm:space-y-8">
-                    <div class="flex items-center justify-between border-b-2 border-slate-700/80 pb-3">
+                <div v-else-if="gameState.phase === 'QUESTION' || gameState.phase === 'REVEAL'" class="stage-question w-full" :class="{ 'stage-revealed': gameState.phase === 'REVEAL' }">
+                    <div class="stage-question-meta flex items-center justify-between border-b-2 border-slate-700/80 pb-3">
                         <span class="bg-blue-600/30 text-blue-300 border border-blue-500/40 text-base sm:text-lg font-black px-4 py-1 rounded-full flex items-center gap-2">
                             <i class="fa-solid fa-list-check"></i> {{ currentQuestion.category }}
                         </span>
@@ -471,11 +536,11 @@
                         </span>
                     </div>
 
-                    <h2 class="text-3xl sm:text-5xl font-black text-white leading-relaxed text-left whitespace-pre-line tracking-wide">
+                    <h2 class="stage-question-title text-3xl sm:text-5xl font-black text-white leading-relaxed text-left whitespace-pre-line tracking-wide">
                         {{ currentQuestion.question }}
                     </h2>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
+                    <div class="stage-options grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
                         <div v-for="(optionText, key) in currentQuestion.options" :key="key"
                              :class="[
                                 gameState.phase === 'REVEAL'
@@ -484,16 +549,16 @@
                                         : 'bg-slate-950/85 border-slate-800 text-slate-500 opacity-35')
                                     : 'bg-slate-900/90 border-slate-700/80 text-slate-100'
                              ]"
-                             class="p-4 sm:p-5 rounded-2xl border-2 flex items-center gap-4 transition-all duration-300 shadow-xl">
+                             class="stage-option p-4 sm:p-5 rounded-2xl border-2 flex items-center gap-4 transition-all duration-300 shadow-xl">
                             <span :class="gameState.phase === 'REVEAL' && key === currentQuestion.answer ? 'bg-emerald-300 text-slate-950 font-black' : 'bg-slate-800 text-amber-400 border border-amber-500/40'"
-                                  class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center font-oswald font-black text-2xl sm:text-4xl flex-shrink-0 shadow">
+                                  class="stage-option-key w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center font-oswald font-black text-2xl sm:text-4xl flex-shrink-0 shadow">
                                 {{ key }}
                             </span>
-                            <span class="text-xl sm:text-3xl font-black text-white leading-snug whitespace-normal break-words">{{ optionText }}</span>
+                            <span class="stage-option-text text-xl sm:text-3xl font-black text-white leading-snug whitespace-normal break-words">{{ optionText }}</span>
                         </div>
                     </div>
 
-                    <div v-if="gameState.phase === 'QUESTION'" class="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 mt-4 shadow-inner">
+                    <div v-if="gameState.phase === 'QUESTION'" class="stage-progress bg-slate-950/90 border border-slate-800 rounded-2xl p-4 mt-4 shadow-inner">
                         <div class="flex justify-between items-center mb-2 text-xs sm:text-sm">
                             <span class="text-slate-300 font-bold flex items-center gap-2">
                                 <i class="fa-solid fa-spinner fa-spin text-amber-400 text-base"></i> 進攻方代表作答進度
@@ -510,8 +575,8 @@
                     </div>
 
                     <!-- 揭曉答案戰報結算專區 (投影視域放大) -->
-                    <div v-if="gameState.phase === 'REVEAL'" class="space-y-4 mt-4">
-                        <div v-if="gameState.lastRevealResult" class="bg-gradient-to-b from-slate-900 to-slate-950 border-2 border-amber-400/90 p-5 sm:p-7 rounded-3xl text-center shadow-2xl space-y-3">
+                    <div v-if="gameState.phase === 'REVEAL'" class="stage-reveal space-y-4 mt-4">
+                        <div v-if="gameState.lastRevealResult" class="stage-result bg-gradient-to-b from-slate-900 to-slate-950 border-2 border-amber-400/90 p-5 sm:p-7 rounded-3xl text-center shadow-2xl space-y-3">
                             <div class="text-base sm:text-lg font-black text-amber-400 uppercase tracking-widest flex items-center justify-center gap-2">
                                 <i class="fa-solid fa-trophy text-lg"></i> 本題攻防戰報結算
                             </div>
@@ -534,7 +599,7 @@
                             </div>
                         </div>
 
-                        <div class="bg-emerald-950/40 border border-emerald-500/50 p-4 sm:p-5 rounded-2xl text-left shadow-lg">
+                        <div class="stage-explanation bg-emerald-950/40 border border-emerald-500/50 p-4 sm:p-5 rounded-2xl text-left shadow-lg">
                             <div class="text-emerald-400 font-bold text-base sm:text-xl mb-1.5 flex items-center gap-2">
                                 <i class="fa-solid fa-circle-check"></i> 正解：{{ currentQuestion.answer }}
                             </div>
