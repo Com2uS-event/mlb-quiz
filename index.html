@@ -1271,10 +1271,10 @@
                 { 
                     id: 2, 
                     category: '歷史紀錄', 
-                    question: '大聯盟歷史上唯一一位獲得「100% 全票通過」入選棒球名人堂的球員是？', 
+                    question: '大聯盟歷史上，唯一經由「美國棒球作家協會（BBWAA）記者票選」，以 100% 得票率入選棒球名人堂的球員是？', 
                     options: { A: 'Ken Griffey Jr.', B: 'Mariano Rivera', C: 'Greg Maddux', D: 'Derek Jeter' }, 
                     answer: 'B', 
-                    explanation: '洋基隊傳奇救援王 Mariano Rivera 於 2019 年獲 425 票全票無異議入選名人堂。' 
+                    explanation: 'Mariano Rivera 於 2019 年在 BBWAA 記者票選中獲得全部 425 票，是此票選管道唯一以 100% 得票率入選的球員；此處不包含年代委員會等其他入選管道。' 
                 },
                 { 
                     id: 3, 
@@ -1309,18 +1309,18 @@
                 { 
                     id: 6, 
                     category: '戰術規則', 
-                    question: 'MLB 於 2023 年全新實施何種規則以大幅縮短比賽時間？', 
+                    question: '以下哪些是 MLB 自 2023 年起實施的規則改革？', 
                     options: { A: '投球計時器 (Pitch Timer)', B: '限制投手牽制次數', C: '加大壘包尺寸', D: '以上皆是' }, 
                     answer: 'D', 
-                    explanation: '2023 年 MLB 同時引進了投球計時器、加大壘包以及牽制次數限制，比賽平均縮短約 30 分鐘。' 
+                    explanation: '三項皆於 2023 年實施。投球計時器主要用來加快比賽節奏；投手牽制及退出投手板次數的限制增加盜壘機會；加大壘包則有助於減少碰撞，也有利於跑壘。' 
                 },
                 { 
                     id: 7, 
                     category: '戰術規則', 
-                    question: '新任投手已經走上丘完成局間熱身，總教練突然改變心意，能不能在他面對打者前再換一名投手？', 
+                    question: '在沒有受傷或生病的情況下，新任投手已完成局間熱身，總教練能否因改變戰術，在他面對該局第一名打者前換投？', 
                     options: { A: '可以，球還沒正式投出', B: '不可，原則上必須至少面對1名打者', C: '可以，但會扣一次丘上會議', D: '可以，但只能換左投' }, 
                     answer: 'B', 
-                    explanation: '自 2024 年規則調整後，上場進行局間熱身的投手必須至少面對 1 名打者，避免用熱身後臨時換投來拖延比賽。' 
+                    explanation: '依 MLB 規則，局間在場上熱身的投手，原則上必須對該局第一名打者投球，直到該打者出局或上壘。新任投手另須符合三打者最低限制，或投至半局結束；經主審認定無法繼續投球的傷病情況除外。' 
                 },
                 { 
                     id: 8, 
@@ -2090,7 +2090,8 @@
                 const bad = message => requireCondition(false, '備份不適用：' + message);
                 const object = x => x && typeof x === 'object' && !Array.isArray(x);
                 requireCondition(object(payload) && ['MLB-live-game-log-v3', 'MLB-live-game-log-v4'].includes(payload.format), '不是本遊戲支援的 v3／v4 JSON 備份。');
-                if (payload.format.endsWith('v4') && payload.questionFingerprint !== questionFingerprint()) bad('題庫版本不同，不能匯入。');
+                // Prior bank differs only in wording/explanations for questions 2, 6 and 7; IDs, options and answers are identical.
+                if (payload.format.endsWith('v4') && ![questionFingerprint(), 'qbank-eceda367'].includes(payload.questionFingerprint)) bad('題庫版本不同，不能匯入。');
                 let nodes = 0;
                 const inspect = (x, depth = 0) => {
                     if (++nodes > 200000 || depth > 50) bad('資料結構過大。');
